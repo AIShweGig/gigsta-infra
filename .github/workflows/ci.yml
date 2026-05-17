@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate compose & terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose config (dev/default)
+        env:
+          GHCR_OWNER: placeholder
+          SECRET_KEY: ci
+        run: |
+          docker compose -f docker-compose.yml config -q
+          echo "✓ docker-compose.yml valid"
+
+      - name: Compose config (prod)
+        env:
+          GHCR_OWNER: placeholder
+          SECRET_KEY: ci
+          ADMIN_PASSWORD: ci
+          DOMAIN: example.com
+          LE_EMAIL: ci@example.com
+        run: |
+          docker compose -f docker-compose.prod.yml config -q
+          echo "✓ docker-compose.prod.yml valid"
+
+      - name: Terraform fmt + validate
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - run: |
+          cd terraform
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+
+      - name: ShellCheck scripts
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck scripts/*.sh || true   # advisory, don't fail the build

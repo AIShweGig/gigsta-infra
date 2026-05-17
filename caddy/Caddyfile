@@ -1,0 +1,40 @@
+# Caddy automatic-HTTPS reverse proxy for Gigsta.
+#
+# - Replace {$DOMAIN} with your real domain via env (DOMAIN=gigsta.app)
+# - Caddy will obtain Let's Encrypt certs on first request (port 80/443 must be open)
+# - Backend stays on the internal Docker network, never exposed publicly
+
+{
+    email {$LE_EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    # API → backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else → frontend (nginx serving static)
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Security headers (also set by nginx, but defense in depth)
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+        # CSP — adjust if you load anything from CDNs other than Google Fonts
+        Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none';"
+        -Server
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

@@ -1,0 +1,22 @@
+version: "3.9"
+
+# Local-development override. Assumes the three repos are cloned as siblings:
+#
+#   workspace/
+#     ├── gigsta-backend/
+#     ├── gigsta-frontend/
+#     └── gigsta-infra/      <-- run compose from here
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# This replaces the published images with local builds.
+
+services:
+  backend:
+    image: gigsta-backend:dev
+    build: ../gigsta-backend
+
+  frontend:
+    image: gigsta-frontend:dev
+    build: ../gigsta-frontend

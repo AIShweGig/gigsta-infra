@@ -1,0 +1,46 @@
+version: "3.9"
+
+# Default stack — runs from published images built by the
+# gigsta-backend and gigsta-frontend CI pipelines.
+#
+#   export GHCR_OWNER=your-github-username-or-org
+#   docker compose --env-file .env up -d
+#
+# For local development against source checkouts, use the dev override:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+services:
+  backend:
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER}/gigsta-backend:${TAG:-latest}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/gigsta.db}
+      SECRET_KEY:   ${SECRET_KEY:?set SECRET_KEY in .env}
+      ADMIN_EMAIL:  ${ADMIN_EMAIL:-admin@gigsta.app}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      TOKEN_EXPIRY_MINUTES: ${TOKEN_EXPIRY_MINUTES:-10080}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Gigsta <hello@gigsta.app>}
+    volumes:
+      - gigsta_data:/data
+      - gigsta_uploads:/srv/uploads
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER}/gigsta-frontend:${TAG:-latest}
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    restart: unless-stopped
+
+volumes:
+  gigsta_data:
+  gigsta_uploads:

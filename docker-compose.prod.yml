@@ -1,0 +1,63 @@
+version: "3.9"
+
+# Production stack: published images + Caddy for automatic HTTPS.
+#
+#   export GHCR_OWNER=your-org DOMAIN=gigsta.app LE_EMAIL=you@example.com
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+
+services:
+  backend:
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER}/gigsta-backend:${TAG:-latest}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/gigsta.db}
+      SECRET_KEY:   ${SECRET_KEY:?must be set}
+      ADMIN_EMAIL:  ${ADMIN_EMAIL:-admin@gigsta.app}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?must be set}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      TOKEN_EXPIRY_MINUTES: ${TOKEN_EXPIRY_MINUTES:-10080}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-https://${DOMAIN}/checkout-success.html}
+      STRIPE_CANCEL_URL:  ${STRIPE_CANCEL_URL:-https://${DOMAIN}/checkout-cancel.html}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Gigsta <hello@gigsta.app>}
+    volumes:
+      - gigsta_data:/data
+      - gigsta_uploads:/srv/uploads
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER}/gigsta-frontend:${TAG:-latest}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - frontend
+      - backend
+    environment:
+      DOMAIN:   ${DOMAIN:?set DOMAIN=yoursite.com}
+      LE_EMAIL: ${LE_EMAIL:?set LE_EMAIL=you@example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  gigsta_data:
+  gigsta_uploads:
+  caddy_data:
+  caddy_config:
